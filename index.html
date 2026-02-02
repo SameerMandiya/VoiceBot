@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sem - Voice Chatbot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #e8e8e8;
+            padding: 16px;
+            overflow-x: hidden;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: clamp(24px, 6vw, 40px);
+            max-width: 400px;
+            width: 100%;
+            min-width: 0;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: clamp(1.25rem, 4vw, 1.5rem);
+            margin-bottom: 8px;
+            font-weight: 600;
+            word-wrap: break-word;
+        }
+        .subtitle {
+            color: #a0a0a0;
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+            margin-bottom: clamp(24px, 5vw, 32px);
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(10px, 3vw, 12px);
+        }
+        button {
+            padding: clamp(12px, 3vw, 14px) clamp(20px, 5vw, 24px);
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
+            font-weight: 500;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            min-height: 48px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-record { background: #e94560; color: white; }
+        .btn-record:hover:not(:disabled) { background: #ff6b6b; }
+        .btn-record:active:not(:disabled) { transform: scale(0.98); }
+        .btn-record.recording { background: #ff1744; animation: pulse 1.5s infinite; }
+        .btn-stop { background: #6c757d; color: white; }
+        .btn-stop:hover:not(:disabled) { background: #5a6268; }
+        .btn-stop:active:not(:disabled) { transform: scale(0.98); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .status {
+            margin-top: clamp(16px, 4vw, 20px);
+            font-size: clamp(0.8rem, 2.2vw, 0.85rem);
+            color: #888;
+            min-height: 24px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .reply-box {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            text-align: left;
+            max-height: 120px;
+            overflow-y: auto;
+            display: none;
+        }
+        .reply-box.show { display: block; }
+        @media (max-width: 380px) {
+            body { padding: 12px; }
+            .container { padding: 20px; }
+            button { min-height: 44px; }
+        }
+        @media (min-width: 768px) {
+            .btn-record:hover:not(:disabled) { transform: scale(1.02); }
+            .btn-stop:hover:not(:disabled) { transform: scale(1.02); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sem Voice Chatbot</h1>
+        <p class="subtitle">Start mic, ask a question, hear the reply (free)</p>
+        <div class="controls">
+            <button id="btnRecord" class="btn-record">Start Recording</button>
+            <button id="btnStop" class="btn-stop" disabled>Stop &amp; Send</button>
+        </div>
+        <p class="status" id="status"></p>
+        <div class="reply-box" id="replyBox"></div>
+    </div>
+    <script>
+        const btnRecord = document.getElementById('btnRecord');
+        const btnStop = document.getElementById('btnStop');
+        const status = document.getElementById('status');
+        const replyBox = document.getElementById('replyBox');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            status.textContent = 'Speech recognition not supported. Use Chrome or Edge.';
+            btnRecord.disabled = true;
+        }
+
+        let recognition = null;
+
+        btnRecord.addEventListener('click', () => {
+            if (!SpeechRecognition) return;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                btnRecord.classList.add('recording');
+                btnRecord.disabled = true;
+                btnStop.disabled = false;
+                status.textContent = 'Listening... speak now.';
+            };
+
+            recognition.onresult = async (e) => {
+                const transcript = (e.results[0][0].transcript || '').trim();
+                if (!transcript) {
+                    status.textContent = 'No speech detected. Try again.';
+                    return;
+                }
+                btnRecord.classList.remove('recording');
+                btnRecord.disabled = false;
+                btnStop.disabled = true;
+                status.textContent = 'Processing...';
+
+                async function doFetch() {
+                    const ctrl = new AbortController();
+                    const t = setTimeout(() => ctrl.abort(), 60000);
+                    const res = await fetch(window.location.origin + '/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: transcript }),
+                        signal: ctrl.signal
+                    });
+                    clearTimeout(t);
+                    return res;
+                }
+
+                try {
+                    let res;
+                    try {
+                        res = await doFetch();
+                    } catch (e) {
+                        btnRecord.disabled = false;
+                        if (e.name === 'AbortError') {
+                            status.textContent = 'Timeout. Try again.';
+                        } else {
+                            status.textContent = 'Network error. Ensure server is running at ' + window.location.origin;
+                        }
+                        return;
+                    }
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        btnRecord.disabled = false;
+                        status.textContent = 'Error: ' + (data.detail || res.statusText);
+                        return;
+                    }
+                    const replyText = (data.text || '').trim();
+                    if (!replyText) {
+                        btnRecord.disabled = false;
+                        status.textContent = 'No reply from server.';
+                        return;
+                    }
+                    replyBox.textContent = replyText;
+                    replyBox.classList.add('show');
+                    status.textContent = 'Speaking...';
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.resume();
+                    const u = new SpeechSynthesisUtterance(replyText);
+                    u.rate = 0.95;
+                    u.volume = 1;
+                    u.onend = () => { status.textContent = 'Done.'; };
+                    u.onerror = (e) => { status.textContent = 'Speech failed. See reply above.'; };
+                    u.onstart = () => { status.textContent = 'Speaking...'; };
+                    window.speechSynthesis.speak(u);
+                } catch (err) {
+                    status.textContent = 'Error: ' + (err.message || 'Request failed');
+                }
+            };
+
+            recognition.onerror = (e) => {
+                btnRecord.classList.remove('recording');
+                btnRecord.disabled = false;
+                btnStop.disabled = true;
+                if (e.error === 'no-speech') status.textContent = 'No speech heard. Try again.';
+                else if (e.error === 'not-allowed') status.textContent = 'Microphone access denied.';
+                else status.textContent = 'Error: ' + (e.error || 'Unknown');
+            };
+
+            recognition.onend = () => {
+                if (btnStop.disabled) return;
+                btnRecord.classList.remove('recording');
+                btnRecord.disabled = false;
+                btnStop.disabled = true;
+            };
+
+            recognition.start();
+        });
+
+        btnStop.addEventListener('click', () => {
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+            }
+        });
+    </script>
+</body>
+</html>
