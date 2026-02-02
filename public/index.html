@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="start()">Speak</button>
+<p id="user"></p>
+<p id="bot"></p>
+
+<script>
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = "en-US";
+
+function speak(text){
+    const u = new SpeechSynthesisUtterance(text);
+    speechSynthesis.speak(u);
+}
+
+function start(){
+    recognition.start();
+}
+
+recognition.onresult = async e => {
+    const text = e.results[0][0].transcript;
+    document.getElementById("user").innerText = text;
+
+    const res = await fetch("/ask", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ text })
+    });
+
+    const data = await res.json();
+    document.getElementById("bot").innerText = data.reply;
+    speak(data.reply);
+};
+</script>
+
+</body>
+</html>
