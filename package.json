@@ -1,0 +1,25 @@
+{
+  "name": "voicebot",
+  "version": "1.0.0",
+  "description": "A voice chatbot for hiring assessment. Users press mic, speak questions, and receive voice replies.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SameerMandiya/VoiceBot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SameerMandiya/VoiceBot/issues"
+  },
+  "homepage": "https://github.com/SameerMandiya/VoiceBot#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2"
+  }
+}
